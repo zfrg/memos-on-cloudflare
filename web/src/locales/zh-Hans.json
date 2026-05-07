@@ -6,8 +6,39 @@
     "github-repository": "GitHub 仓库",
     "official-website": "官网"
   },
+  "attachment-library": {
+    "actions": {
+      "open": "打开",
+      "retry": "重试"
+    },
+    "empty": {
+      "audio": "暂无音频附件。",
+      "documents": "暂无文档附件。",
+      "media": "暂无媒体附件。"
+    },
+    "errors": {
+      "load": "加载附件失败。"
+    },
+    "labels": {
+      "live": "实况",
+      "live-photo": "实况照片",
+      "memo": "备忘录",
+      "not-linked": "未关联",
+      "unknown-date": "未知日期",
+      "unused": "未使用"
+    },
+    "tabs": {
+      "audio": "音频",
+      "documents": "文档",
+      "media": "媒体"
+    },
+    "unused": {
+      "confirm-description": "这将删除所有未关联到备忘录的上传文件。",
+      "description": "这些上传文件从未关联到任何备忘录。可以在此查看或删除。",
+      "title": "未关联的上传"
+    }
+  },
   "auth": {
-    "create-your-account": "创建您的账户",
     "host-tip": "您正在注册为站点管理员。",
     "new-password": "新密码",
     "protected-memo-notice": "此备忘录不是公开的。请先登录后继续。",

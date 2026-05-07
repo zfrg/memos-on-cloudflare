@@ -6,6 +6,38 @@
     "github-repository": "GitHub 儲存庫",
     "official-website": "官方網站"
   },
+  "attachment-library": {
+    "actions": {
+      "open": "開啟",
+      "retry": "重試"
+    },
+    "empty": {
+      "audio": "尚無音訊附件。",
+      "documents": "尚無文件附件。",
+      "media": "尚無媒體附件。"
+    },
+    "errors": {
+      "load": "載入附件失敗。"
+    },
+    "labels": {
+      "live": "動態",
+      "live-photo": "原況照片",
+      "memo": "備忘錄",
+      "not-linked": "未關聯",
+      "unknown-date": "未知日期",
+      "unused": "未使用"
+    },
+    "tabs": {
+      "audio": "音訊",
+      "documents": "文件",
+      "media": "媒體"
+    },
+    "unused": {
+      "confirm-description": "這將刪除所有未關聯到備忘錄的上傳檔案。",
+      "description": "這些上傳檔案從未關聯到任何備忘錄。可以在此查看或刪除。",
+      "title": "未關聯的上傳"
+    }
+  },
   "auth": {
     "create-your-account": "建立您的帳號",
     "host-tip": "您即將註冊為網站管理員。",
