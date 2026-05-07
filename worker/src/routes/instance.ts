@@ -53,26 +53,6 @@ instanceRoutes.get("/profile", async (c) => {
   });
 });
 
-// Get instance setting
-instanceRoutes.get("/settings/*", async (c) => {
-  const fullPath = c.req.path;
-  const name = settingDB.normalizeInstanceSettingName(fullPath.replace("/api/v1/instance/settings/", ""));
-  if (!name) {
-    const settings = await settingDB.listSystemSettings(c.env.DB);
-    return c.json({
-      settings: settings.map((setting) => ({
-        ...setting,
-        name: settingDB.normalizeInstanceSettingName(setting.name),
-      })),
-    });
-  }
-  const setting = await settingDB.getInstanceSetting(c.env.DB, name);
-  if (!setting) {
-    return c.json({ name, value: "{}" });
-  }
-  return c.json({ name: setting.name, value: setting.value });
-});
-
 // List instance settings
 instanceRoutes.get("/settings", async (c) => {
   const settings = await settingDB.listSystemSettings(c.env.DB);
@@ -82,6 +62,17 @@ instanceRoutes.get("/settings", async (c) => {
       name: settingDB.normalizeInstanceSettingName(setting.name),
     })),
   });
+});
+
+// Get instance setting
+instanceRoutes.get("/settings/*", async (c) => {
+  const fullPath = c.req.path;
+  const name = settingDB.normalizeInstanceSettingName(fullPath.replace("/api/v1/instance/settings/", ""));
+  const setting = await settingDB.getInstanceSetting(c.env.DB, name);
+  if (!setting) {
+    return c.json({ name, value: "{}" });
+  }
+  return c.json({ name: setting.name, value: setting.value });
 });
 
 // Test email setting via Resend (admin only)
