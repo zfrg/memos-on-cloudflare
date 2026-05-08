@@ -33,6 +33,19 @@ function toISODateTime(seconds: number): string {
   return new Date(seconds * 1000).toISOString();
 }
 
+async function buildCurrentUserResponse(db: D1Database, userId: number) {
+  const user = await findUserById(db, userId);
+  if (!user) {
+    return null;
+  }
+
+  const formattedUser = formatUser(user);
+  return {
+    user: formattedUser,
+    ...formattedUser,
+  };
+}
+
 authRoutes.post("/signin", async (c) => {
   const body = await c.req.json();
 
@@ -280,15 +293,54 @@ authRoutes.post("/refresh", async (c) => {
 
 authRoutes.get("/me", authRequired, async (c) => {
   const currentUser = c.get("user");
-  const user = await findUserById(c.env.DB, currentUser.id);
-  if (!user) {
+  const response = await buildCurrentUserResponse(c.env.DB, currentUser.id);
+  if (!response) {
     return c.json({ error: "User not found" }, 404);
   }
 
-  const formattedUser = formatUser(user);
+  return c.json(response);
+});
+
+authRoutes.get("/status", authRequired, async (c) => {
+  const currentUser = c.get("user");
+  const response = await buildCurrentUserResponse(c.env.DB, currentUser.id);
+  if (!response) {
+    return c.json({ error: "User not found" }, 404);
+  }
+
   return c.json({
-    user: formattedUser,
-    ...formattedUser,
+    ok: true,
+    authenticated: true,
+    ...response,
+  });
+});
+
+authRoutes.post("/status", authRequired, async (c) => {
+  const currentUser = c.get("user");
+  const response = await buildCurrentUserResponse(c.env.DB, currentUser.id);
+  if (!response) {
+    return c.json({ error: "User not found" }, 404);
+  }
+
+  return c.json({
+    ok: true,
+    authenticated: true,
+    ...response,
+  });
+});
+
+authRoutes.get("/sessions/current", authRequired, async (c) => {
+  const currentUser = c.get("user");
+  const response = await buildCurrentUserResponse(c.env.DB, currentUser.id);
+  if (!response) {
+    return c.json({ error: "User not found" }, 404);
+  }
+
+  return c.json({
+    session: {
+      user: response.user,
+    },
+    ...response,
   });
 });
 
@@ -300,3 +352,5 @@ authRoutes.all("/signup", methodNotAllowed);
 authRoutes.all("/signout", methodNotAllowed);
 authRoutes.all("/refresh", methodNotAllowed);
 authRoutes.all("/me", methodNotAllowed);
+authRoutes.all("/status", methodNotAllowed);
+authRoutes.all("/sessions/current", methodNotAllowed);

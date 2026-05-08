@@ -8,13 +8,34 @@ type AuthEnv = {
   Variables: { user: UserPayload };
 };
 
-export const authRequired = createMiddleware<AuthEnv>(async (c, next) => {
-  const authHeader = c.req.header("Authorization");
-  let token: string | undefined;
-
+function extractAuthToken(headers: {
+  header: (name: string) => string | undefined;
+}): string | undefined {
+  const authHeader = headers.header("Authorization");
   if (authHeader?.startsWith("Bearer ")) {
-    token = authHeader.slice(7);
+    return authHeader.slice(7);
   }
+
+  const xApiKey = headers.header("X-API-Key");
+  if (xApiKey) {
+    return xApiKey;
+  }
+
+  const memosAccessToken = headers.header("Memos-Access-Token");
+  if (memosAccessToken) {
+    return memosAccessToken;
+  }
+
+  const token = headers.header("Token");
+  if (token) {
+    return token;
+  }
+
+  return undefined;
+}
+
+export const authRequired = createMiddleware<AuthEnv>(async (c, next) => {
+  const token = extractAuthToken(c.req);
 
   if (!token) {
     return c.json({ code: 16, message: "user not found", details: [] }, 401);
@@ -60,12 +81,7 @@ export const authRequired = createMiddleware<AuthEnv>(async (c, next) => {
 });
 
 export const authOptional = createMiddleware<AuthEnv>(async (c, next) => {
-  const authHeader = c.req.header("Authorization");
-  let token: string | undefined;
-
-  if (authHeader?.startsWith("Bearer ")) {
-    token = authHeader.slice(7);
-  }
+  const token = extractAuthToken(c.req);
 
   if (token) {
     if (token.startsWith("memos_pat_")) {

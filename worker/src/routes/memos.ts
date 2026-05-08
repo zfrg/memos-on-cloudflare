@@ -74,6 +74,7 @@ function formatMemo(memo: memoDB.MemoRow, creatorUsername?: string) {
     tags: payload.tags || [],
     property: payload.property || {},
     location: payload.location || null,
+    parent: payload.parent || "",
   };
 }
 
@@ -462,7 +463,10 @@ memoRoutes.post("/:id/comments", authRequired, async (c) => {
     creatorId: user.id,
     content: body.content || "",
     visibility: body.visibility || parentMemo.visibility,
-    payload: JSON.stringify(payload),
+    payload: JSON.stringify({
+      ...payload,
+      parent: `memos/${parentMemo.uid}`,
+    }),
   });
 
   await relationDB.createRelation(c.env.DB, {
