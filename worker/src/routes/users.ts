@@ -27,7 +27,7 @@ const getGeneralSetting = async (db: D1Database) => {
   }
 };
 
-function formatUser(user: userDB.UserRow) {
+export function formatUser(user: userDB.UserRow) {
   return {
     name: `users/${user.username}`,
     id: user.id,
@@ -47,7 +47,7 @@ function formatUser(user: userDB.UserRow) {
 // List users
 userRoutes.get("/", authOptional, async (c) => {
   const users = await userDB.listUsers(c.env.DB, { rowStatus: "NORMAL" });
-  return c.json({ users: users.map(formatUser) });
+  return c.json({ users: users.map(formatUser), nextPageToken: "", totalSize: users.length });
 });
 
 // Batch get users

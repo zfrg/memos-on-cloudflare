@@ -85,6 +85,7 @@ async function getMemoAttachments(db: D1Database, memoId: number) {
     name: `attachments/${att.id}`,
     uid: att.uid,
     createTime: new Date(att.created_ts * 1000).toISOString(),
+    updateTime: new Date((att.updated_ts || att.created_ts) * 1000).toISOString(),
     filename: att.filename,
     type: att.type,
     size: att.size,
@@ -115,12 +116,49 @@ async function getMemoRelations(db: D1Database, memoId: number) {
   );
 }
 
+function formatReaction(reaction: reactionDB.ReactionRow, creatorUsername?: string) {
+  return {
+    id: reaction.id,
+    creator: `users/${creatorUsername || reaction.creator_id}`,
+    contentId: reaction.content_id,
+    reactionType: reaction.reaction_type,
+    createTime: new Date(reaction.created_ts * 1000).toISOString(),
+  };
+}
+
+async function getMemoReactions(db: D1Database, memoUid: string) {
+  const reactions = await reactionDB.listReactions(db, memoUid);
+  const creatorIds = [...new Set(reactions.map((r) => r.creator_id))];
+  const usernameMap = new Map<number, string>();
+  for (const id of creatorIds) {
+    const user = await db.prepare("SELECT username FROM user WHERE id = ?").bind(id).first<{ username: string }>();
+    if (user) usernameMap.set(id, user.username);
+  }
+  return reactions.map((r) => formatReaction(r, usernameMap.get(r.creator_id)));
+}
+
+function formatShare(share: shareDB.ShareRow) {
+  return {
+    name: `memos/${share.memo_id}/shares/${share.uid}`,
+    uid: share.uid,
+    memoId: share.memo_id,
+    creatorId: share.creator_id,
+    createTime: new Date(share.created_ts * 1000).toISOString(),
+    expireTime: share.expires_ts ? new Date(share.expires_ts * 1000).toISOString() : null,
+  };
+}
+
 async function enrichMemo(db: D1Database, memo: memoDB.MemoRow, creatorUsername?: string) {
-  const [attachments, relations] = await Promise.all([getMemoAttachments(db, memo.id), getMemoRelations(db, memo.id)]);
+  const [attachments, relations, reactions] = await Promise.all([
+    getMemoAttachments(db, memo.id),
+    getMemoRelations(db, memo.id),
+    getMemoReactions(db, memo.uid),
+  ]);
   return {
     ...formatMemo(memo, creatorUsername),
     attachments,
     relations,
+    reactions,
   };
 }
 
@@ -470,7 +508,11 @@ memoRoutes.get("/:id/comments", authOptional, async (c) => {
   }
 
   const usernameMap = await resolveCreatorUsernames(c.env.DB, comments);
-  return c.json({ memos: await Promise.all(comments.map((m) => enrichMemo(c.env.DB, m, usernameMap.get(m.creator_id)))) });
+  return c.json({
+    memos: await Promise.all(comments.map((m) => enrichMemo(c.env.DB, m, usernameMap.get(m.creator_id)))),
+    nextPageToken: "",
+    totalSize: comments.length,
+  });
 });
 
 // --- Memo Reactions ---
@@ -481,7 +523,7 @@ memoRoutes.get("/:id/reactions", authOptional, async (c) => {
     : await memoDB.getMemoByUid(c.env.DB, id);
   if (!memo) return c.json({ error: "Memo not found" }, 404);
 
-  const reactions = await reactionDB.listReactions(c.env.DB, memo.uid);
+  const reactions = await getMemoReactions(c.env.DB, memo.uid);
   return c.json({ reactions });
 });
 
@@ -499,7 +541,7 @@ memoRoutes.post("/:id/reactions", authRequired, async (c) => {
     contentId: memo.uid,
     reactionType: body.reactionType,
   });
-  return c.json(reaction);
+  return c.json(formatReaction(reaction, user.username));
 });
 
 memoRoutes.delete("/:id/reactions/:reactionId", authRequired, async (c) => {
@@ -519,7 +561,7 @@ memoRoutes.get("/:id/shares", authOptional, async (c) => {
   if (!memo) return c.json({ error: "Memo not found" }, 404);
 
   const shares = await shareDB.listShares(c.env.DB, memo.id);
-  return c.json({ shares });
+  return c.json({ shares: shares.map(formatShare) });
 });
 
 memoRoutes.post("/:id/shares", authRequired, async (c) => {
@@ -539,7 +581,7 @@ memoRoutes.post("/:id/shares", authRequired, async (c) => {
     creatorId: user.id,
     expiresTs: body.expiresTs,
   });
-  return c.json(share);
+  return c.json(formatShare(share));
 });
 
 memoRoutes.delete("/:id/shares/:shareId", authRequired, async (c) => {
@@ -558,11 +600,8 @@ memoRoutes.get("/:id/attachments", authOptional, async (c) => {
     : await memoDB.getMemoByUid(c.env.DB, id);
   if (!memo) return c.json({ error: "Memo not found" }, 404);
 
-  const { results } = await c.env.DB.prepare(
-    "SELECT * FROM attachment WHERE memo_id = ?"
-  ).bind(memo.id).all();
-
-  return c.json({ attachments: results });
+  const attachments = await getMemoAttachments(c.env.DB, memo.id);
+  return c.json({ attachments });
 });
 
 memoRoutes.patch("/:id/attachments", authRequired, async (c) => {
@@ -637,4 +676,36 @@ memoRoutes.get("/-/linkMetadata", async (c) => {
   } catch {
     return c.json({ title: "", description: "", image: "" });
   }
+});
+
+memoRoutes.post("/-/linkMetadata\\:batchGet", async (c) => {
+  const body = await c.req.json<{ urls: string[] }>();
+  const urls = body.urls || [];
+
+  const linkMetadata = await Promise.all(
+    urls.map(async (url) => {
+      try {
+        const resp = await fetch(url, {
+          headers: { "User-Agent": "cfmemos-bot/1.0" },
+          redirect: "follow",
+        });
+        const html = await resp.text();
+
+        const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+        const descMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i);
+        const imageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i);
+
+        return {
+          url,
+          title: titleMatch?.[1]?.trim() || "",
+          description: descMatch?.[1]?.trim() || "",
+          image: imageMatch?.[1]?.trim() || "",
+        };
+      } catch {
+        return { url, title: "", description: "", image: "" };
+      }
+    }),
+  );
+
+  return c.json({ linkMetadata });
 });

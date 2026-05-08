@@ -6,9 +6,11 @@ import { hashPassword, verifyPassword } from "../auth/password";
 import { exchangeOAuthCode } from "../auth/oauth";
 import { authRequired } from "../middleware/auth";
 import { findUserByUsername, findUserById, createUser, countUsers } from "../db/user";
+import type { UserRow } from "../db/user";
 import * as settingDB from "../db/setting";
 import { createErrorBody } from "../error";
 import { extractIdentityProviderUid } from "../idp";
+import { formatUser } from "./users";
 
 type AuthApp = { Bindings: Env; Variables: { user: UserPayload } };
 
@@ -160,17 +162,7 @@ authRoutes.post("/signin", async (c) => {
   return c.json({
     accessToken,
     expiresAt,
-    user: {
-      id: user!.id,
-      username: user!.username,
-      role: user!.role,
-      nickname: user!.nickname,
-      email: user!.email,
-      avatarUrl: user!.avatar_url,
-      description: user!.description,
-      createTime: new Date(user!.created_ts * 1000).toISOString(),
-      updateTime: new Date(user!.updated_ts * 1000).toISOString(),
-    },
+    user: formatUser(user! as UserRow),
   });
 });
 
@@ -230,17 +222,7 @@ authRoutes.post("/signup", async (c) => {
   return c.json({
     accessToken,
     expiresAt,
-    user: {
-      id: user.id,
-      username: user.username,
-      role: user.role,
-      nickname: "",
-      email: "",
-      avatarUrl: "",
-      description: "",
-      createTime: new Date(user.created_ts * 1000).toISOString(),
-      updateTime: new Date(user.updated_ts * 1000).toISOString(),
-    },
+    user: formatUser(user as UserRow),
   });
 });
 
@@ -284,16 +266,5 @@ authRoutes.get("/me", authRequired, async (c) => {
     return c.json({ error: "User not found" }, 404);
   }
 
-  return c.json({
-    id: user.id,
-    username: user.username,
-    role: user.role,
-    nickname: user.nickname,
-    email: user.email,
-    avatarUrl: user.avatar_url,
-    description: user.description,
-    rowStatus: user.row_status,
-    createTime: new Date(user.created_ts * 1000).toISOString(),
-    updateTime: new Date(user.updated_ts * 1000).toISOString(),
-  });
+  return c.json(formatUser(user));
 });
