@@ -127,8 +127,8 @@ userRoutes.get("/:username/stats", authOptional, async (c) => {
   }
 
   const { results: memos } = await c.env.DB.prepare(
-    `SELECT created_ts, payload, pinned FROM memo WHERE ${conditions.join(" AND ")}`
-  ).bind(user.id).all<{ created_ts: number; payload: string; pinned: number }>();
+    `SELECT created_ts, updated_ts, payload, pinned FROM memo WHERE ${conditions.join(" AND ")}`
+  ).bind(user.id).all<{ created_ts: number; updated_ts: number; payload: string; pinned: number }>();
 
   const tagCounts: Record<string, number> = {};
   let linkCount = 0, codeCount = 0, todoCount = 0, undoCount = 0;
@@ -155,6 +155,7 @@ userRoutes.get("/:username/stats", authOptional, async (c) => {
     memoTypeStats: { linkCount, codeCount, todoCount, undoCount },
     pinnedMemos,
     memoCreatedTimestamps: memos.map((m) => ({ seconds: m.created_ts, nanos: 0 })),
+    memoUpdatedTimestamps: memos.map((m) => ({ seconds: m.updated_ts, nanos: 0 })),
   };
 
   if (scope !== "owner") {
