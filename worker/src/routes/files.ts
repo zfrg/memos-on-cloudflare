@@ -4,6 +4,7 @@ import type { Env, UserPayload } from "../types";
 import { authOptional } from "../middleware/auth";
 import { verifyRefreshToken } from "../auth/jwt";
 import * as shareDB from "../db/share";
+import { getStorage } from "../storage";
 
 type FileApp = { Bindings: Env; Variables: { user: UserPayload } };
 
@@ -140,10 +141,11 @@ fileRoutes.get("/attachments/:uid/:filename", authOptional, async (c) => {
   }
 
   const range = parseRangeHeader(c.req.header("Range"), att.size);
-  const r2Object = range
-    ? await c.env.BUCKET.get(att.reference, { range: { offset: range.start, length: range.length } })
-    : await c.env.BUCKET.get(att.reference);
-  if (!r2Object) {
+  const storage = getStorage(c.env);
+  const storageObj = range
+    ? await storage.getRange(att.reference, range.start, range.length)
+    : await storage.get(att.reference);
+  if (!storageObj) {
     return c.notFound();
   }
 
@@ -161,14 +163,14 @@ fileRoutes.get("/attachments/:uid/:filename", authOptional, async (c) => {
   if (range) {
     headers["Content-Range"] = `bytes ${range.start}-${range.end}/${att.size}`;
     headers["Content-Length"] = String(range.length);
-    return new Response(r2Object.body, { status: 206, headers });
+    return new Response(storageObj.body, { status: 206, headers });
   }
 
-  if (r2Object.size) {
-    headers["Content-Length"] = String(r2Object.size);
+  if (storageObj.size) {
+    headers["Content-Length"] = String(storageObj.size);
   }
 
-  return new Response(r2Object.body, { status: 200, headers });
+  return new Response(storageObj.body, { status: 200, headers });
 });
 
 // Serve user avatar
@@ -191,13 +193,13 @@ fileRoutes.get("/users/:identifier/avatar", async (c) => {
     });
   }
 
-  // If avatar is an R2 reference
+  // If avatar is stored in storage backend
   if (user.avatar_url.startsWith("avatars/")) {
-    const r2Object = await c.env.BUCKET.get(user.avatar_url);
-    if (r2Object) {
-      return new Response(r2Object.body, {
+    const avatar = await getStorage(c.env).get(user.avatar_url);
+    if (avatar) {
+      return new Response(avatar.body, {
         headers: {
-          "Content-Type": r2Object.httpMetadata?.contentType || "image/png",
+          "Content-Type": avatar.contentType || "image/png",
           "Cache-Control": "public, max-age=3600",
         },
       });

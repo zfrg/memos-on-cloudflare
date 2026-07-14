@@ -4,6 +4,7 @@ import { authOptional, authRequired } from "../middleware/auth";
 import * as settingDB from "../db/setting";
 import { createErrorBody } from "../error";
 import { deleteCachedKeys } from "../cache";
+import { getStorage } from "../storage";
 
 type AttApp = { Bindings: Env; Variables: { user: UserPayload } };
 
@@ -218,10 +219,8 @@ attachmentRoutes.post("/", authRequired, async (c) => {
   const uid = crypto.randomUUID().replace(/-/g, "").slice(0, 22);
   const r2Key = `attachments/${uid}/${filename}`;
 
-  // Store in R2
-  await c.env.BUCKET.put(r2Key, fileData, {
-    httpMetadata: { contentType: fileType },
-  });
+  // Store in storage backend
+  await getStorage(c.env).put(r2Key, fileData, fileType);
 
   // Store metadata in D1
   const createdTs = nowTs();
@@ -329,9 +328,9 @@ attachmentRoutes.delete("/:id", authRequired, async (c) => {
     return c.json({ error: "Permission denied" }, 403);
   }
 
-  // Delete from R2
+  // Delete from storage
   if (att.reference) {
-    await c.env.BUCKET.delete(att.reference);
+    await getStorage(c.env).delete(att.reference);
   }
 
   await c.env.DB.prepare("DELETE FROM attachment WHERE id = ?").bind(att.id).run();
@@ -350,7 +349,8 @@ attachmentRoutes.post("/:action", authRequired, async (c) => {
   const attachments = await findAttachmentsByTokens(c.env.DB, (body.names || body.ids || []).map(String));
   const deletableAttachments = attachments.filter((att) => att.creator_id === user.id || user.role === "ADMIN");
 
-  await Promise.all(deletableAttachments.map((att) => att.reference ? c.env.BUCKET.delete(att.reference) : Promise.resolve()));
+  const storage = getStorage(c.env);
+  await Promise.all(deletableAttachments.map((att) => att.reference ? storage.delete(att.reference) : Promise.resolve()));
 
   const attachmentIds = deletableAttachments.map((att) => att.id);
   for (const chunk of chunkValues(attachmentIds, 900)) {

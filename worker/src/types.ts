@@ -1,7 +1,8 @@
 export interface Env {
   ASSETS: Fetcher;
   DB: D1Database;
-  BUCKET: R2Bucket;
+  BUCKET?: R2Bucket;
+  STORAGE_KV?: KVNamespace;
   CACHE?: KVNamespace;
   AI: Ai;
   JWT_SECRET: string;

@@ -17,9 +17,18 @@ binding = "DB"
 database_name = "cfmemos-db"
 database_id = "efb2f813-c777-494c-941a-cd34bc0e7d5b"
 
+# Choose one of the two storage backends below.
+# Option A: R2 (recommended for large files, native range requests)
 [[r2_buckets]]
 binding = "BUCKET"
 bucket_name = "cfmemos"
+
+# Option B: KV (alternative; 25MB per-file limit, no native range support).
+# Comment out the [[r2_buckets]] block above and uncomment this block.
+# Requires: wrangler kv namespace create cfmemos-storage
+#[[kv_namespaces]]
+#binding = "STORAGE_KV"
+#id = ""
 
 # Optional KV cache. Create a namespace with:
 #   wrangler kv namespace create cfmemos-cache
