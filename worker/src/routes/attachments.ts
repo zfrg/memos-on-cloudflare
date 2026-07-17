@@ -251,6 +251,7 @@ attachmentRoutes.get("/", authRequired, async (c) => {
 
   if (filter.includes("memo_id == null") || filter.includes("memo == null")) {
     whereConditions.push("memo_id IS NULL");
+    whereConditions.push("(memo_id IS NULL OR memo_id NOT IN (SELECT id FROM memo))");
   }
 
   const whereClause = `WHERE ${whereConditions.join(" AND ")}`;
