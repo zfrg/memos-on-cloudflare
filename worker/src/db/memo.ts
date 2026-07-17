@@ -200,5 +200,6 @@ export async function updateMemo(
 }
 
 export async function deleteMemo(db: D1Database, id: number): Promise<void> {
+  await db.prepare("UPDATE attachment SET memo_id = NULL WHERE memo_id = ?").bind(id).run();
   await db.prepare("DELETE FROM memo WHERE id = ?").bind(id).run();
 }
